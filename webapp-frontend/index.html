@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SmartCart Admin Dashboard</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { padding: 2rem; }
+    .toast-container { position: fixed; top: 1rem; right: 1rem; z-index: 1055; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1 class="mb-4">SmartCart Admin</h1>
+
+    <!-- Users -->
+    <div class="mb-5">
+      <h3>Users</h3>
+      <form id="userForm" class="row g-2 mb-3">
+        <input type="hidden" id="userId">
+        <div class="col-auto"><input type="text" id="username" class="form-control" placeholder="Username" required></div>
+        <div class="col-auto"><input type="email" id="email" class="form-control" placeholder="Email" required></div>
+        <div class="col-auto"><button type="submit" class="btn btn-primary">Save User</button></div>
+      </form>
+      <ul id="userList" class="list-group"></ul>
+    </div>
+
+    <!-- Products -->
+    <div>
+      <h3>Products</h3>
+      <form id="productForm" class="row g-2 mb-3">
+        <input type="hidden" id="productId">
+        <div class="col-auto"><input type="text" id="name" class="form-control" placeholder="Product Name" required></div>
+        <div class="col-auto"><input type="number" id="price" class="form-control" placeholder="Price" required></div>
+        <div class="col-auto"><button type="submit" class="btn btn-success">Save Product</button></div>
+      </form>
+      <ul id="productList" class="list-group"></ul>
+    </div>
+  </div>
+
+  <!-- Toast container -->
+  <div class="toast-container position-fixed top-0 end-0 p-3" id="toastContainer"></div>
+
+  <script>
+    const BASE_URL = "https://nwodgk6rsg.execute-api.ap-south-2.amazonaws.com/prod/api";
+
+    const toast = (msg, isError = false) => {
+      const container = document.getElementById("toastContainer");
+      const toast = document.createElement("div");
+      toast.className = `toast align-items-center text-white ${isError ? 'bg-danger' : 'bg-success'} border-0`;
+      toast.setAttribute("role", "alert");
+      toast.setAttribute("aria-live", "assertive");
+      toast.setAttribute("aria-atomic", "true");
+      toast.innerHTML = `<div class="d-flex"><div class="toast-body">${msg}</div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>`;
+      container.appendChild(toast);
+      new bootstrap.Toast(toast).show();
+    };
+
+    async function loadUsers() {
+      try {
+        const res = await fetch(`${BASE_URL}/users`);
+        const users = await res.json();
+        const list = document.getElementById("userList");
+        list.innerHTML = "";
+        users.forEach(u => {
+          const li = document.createElement("li");
+          li.className = "list-group-item d-flex justify-content-between align-items-center";
+          li.innerHTML = `
+            ${u.username} (${u.email})
+            <div>
+              <button class="btn btn-sm btn-warning me-1" onclick="editUser('${u.id}','${u.username}','${u.email}')">Edit</button>
+              <button class="btn btn-sm btn-danger" onclick="deleteUser('${u.id}')">Delete</button>
+            </div>`;
+          list.appendChild(li);
+        });
+      } catch (err) {
+        toast("Failed to load users", true);
+      }
+    }
+
+    async function loadProducts() {
+      try {
+        const res = await fetch(`${BASE_URL}/products`);
+        const products = await res.json();
+        const list = document.getElementById("productList");
+        list.innerHTML = "";
+        products.forEach(p => {
+          const li = document.createElement("li");
+          li.className = "list-group-item d-flex justify-content-between align-items-center";
+          li.innerHTML = `
+            ${p.name} - ₹${p.price}
+            <div>
+              <button class="btn btn-sm btn-warning me-1" onclick="editProduct('${p.id}','${p.name}','${p.price}')">Edit</button>
+              <button class="btn btn-sm btn-danger" onclick="deleteProduct('${p.id}')">Delete</button>
+            </div>`;
+          list.appendChild(li);
+        });
+      } catch (err) {
+        toast("Failed to load products", true);
+      }
+    }
+
+    document.getElementById("userForm").addEventListener("submit", async e => {
+      e.preventDefault();
+      const id = document.getElementById("userId").value;
+      const username = document.getElementById("username").value;
+      const email = document.getElementById("email").value;
+      try {
+        const method = id ? "PUT" : "POST";
+        const url = id ? `${BASE_URL}/users/${id}` : `${BASE_URL}/users`;
+        const res = await fetch(url, {
+          method,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, email })
+        });
+        if (!res.ok) throw new Error("Error saving user");
+        toast(id ? "User updated" : "User created");
+        e.target.reset();
+        loadUsers();
+      } catch {
+        toast("Error saving user", true);
+      }
+    });
+
+    document.getElementById("productForm").addEventListener("submit", async e => {
+      e.preventDefault();
+      const id = document.getElementById("productId").value;
+      const name = document.getElementById("name").value;
+      const price = document.getElementById("price").value;
+      try {
+        const method = id ? "PUT" : "POST";
+        const url = id ? `${BASE_URL}/products/${id}` : `${BASE_URL}/products`;
+        const res = await fetch(url, {
+          method,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, price })
+        });
+        if (!res.ok) throw new Error("Error saving product");
+        toast(id ? "Product updated" : "Product created");
+        e.target.reset();
+        loadProducts();
+      } catch {
+        toast("Error saving product", true);
+      }
+    });
+
+    const editUser = (id, username, email) => {
+      document.getElementById("userId").value = id;
+      document.getElementById("username").value = username;
+      document.getElementById("email").value = email;
+    };
+
+    const deleteUser = async (id) => {
+      if (!confirm("Delete user?")) return;
+      try {
+        const res = await fetch(`${BASE_URL}/users/${id}`, { method: "DELETE" });
+        if (!res.ok) throw new Error();
+        toast("User deleted");
+        loadUsers();
+      } catch {
+        toast("Error deleting user", true);
+      }
+    };
+
+    const editProduct = (id, name, price) => {
+      document.getElementById("productId").value = id;
+      document.getElementById("name").value = name;
+      document.getElementById("price").value = price;
+    };
+
+    const deleteProduct = async (id) => {
+      if (!confirm("Delete product?")) return;
+      try {
+        const res = await fetch(`${BASE_URL}/products/${id}`, { method: "DELETE" });
+        if (!res.ok) throw new Error();
+        toast("Product deleted");
+        loadProducts();
+      } catch {
+        toast("Error deleting product", true);
+      }
+    };
+
+    // Initial load
+    loadUsers();
+    loadProducts();
+  </script>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
