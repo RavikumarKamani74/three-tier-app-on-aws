@@ -1,4 +1,4 @@
-name: Deploy Lambda Functions
+name: Deploy to EC2 via SSM
 
 on:
   push:
@@ -23,14 +23,22 @@ jobs:
         role-to-assume: arn:aws:iam::358238714507:role/githu-CICD-resume
         aws-region: us-east-1
 
-    - name: Install Dependencies and Zip
+    - name: Upload backend code to S3
       run: |
-        cd backend
-        npm install
-        zip -r function.zip .
+        zip -r backend.zip backend
+        aws s3 cp backend.zip s3://webapp-frontend-ravi/backend.zip
 
-    - name: Deploy to Lambda
+    - name: Run SSM Command on EC2
       run: |
-        aws lambda update-function-code \
-          --function-name CreateUserFunction \
-          --zip-file fileb://backend/function.zip
+        aws ssm send-command \
+          --document-name "AWS-RunShellScript" \
+          --comment "Deploy backend from GitHub" \
+          --targets "Key=tag:Name,Values=webapp-frontend-ravi" \
+          --parameters 'commands=[
+            "aws s3 cp s3://webapp-frontend-ravi/backend.zip /home/ec2-user/backend.zip",
+            "unzip -o /home/ec2-user/backend.zip -d /home/ec2-user/app",
+            "cd /home/ec2-user/app/backend",
+            "npm install",
+            "node index.js &"
+          ]' \
+          --region us-east-1
