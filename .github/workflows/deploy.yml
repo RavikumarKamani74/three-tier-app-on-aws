@@ -25,8 +25,8 @@ jobs:
 
     - name: Upload backend code to S3
       run: |
-        zip -r backend.zip backend
-        aws s3 cp backend.zip s3://webapp-frontend-ravi/backend.zip
+        zip -r webapp-backend.zip webapp-backend
+        aws s3 cp webapp-backend.zip s3://webapp-frontend-ravi/webapp-backend.zip
 
     - name: Run SSM Command on EC2
       run: |
@@ -35,10 +35,10 @@ jobs:
           --comment "Deploy backend from GitHub" \
           --targets "Key=tag:Name,Values=webapp-frontend-ravi" \
           --parameters 'commands=[
-            "aws s3 cp s3://webapp-frontend-ravi/backend.zip /home/ec2-user/backend.zip",
-            "unzip -o /home/ec2-user/backend.zip -d /home/ec2-user/app",
-            "cd /home/ec2-user/app/backend",
+            "aws s3 cp s3://webapp-frontend-ravi/webapp-backend.zip /home/ec2-user/webapp-backend.zip",
+            "unzip -o /home/ec2-user/webapp-backend.zip -d /home/ec2-user/app",
+            "cd /home/ec2-user/app/webapp-backend",
             "npm install",
-            "node index.js &"
+            "nohup node index.js &"
           ]' \
           --region us-east-1
